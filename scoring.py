@@ -1,6 +1,8 @@
 import geopandas as gpd
 import pandas as pd
 import logging
+
+from pandas.core.dtypes.cast import dict_compat
 '''
 Logging setup - Screen and File Logging
 '''
@@ -22,7 +24,8 @@ class surfaceScore:
 
     def __init__(self, geoPackage: str, scoreVal: dict, renameIndex: bool):
         self.scoreVal = scoreVal
-        self.gpkg = gpd.read_file(geoPackage) 
+        # self.gpkg = gpd.read_file(geoPackage) 
+        self.gpkg = geoPackage
         self.gpkg = self.gpkg.convert_dtypes()
         self.gpkg['SCORE'] = 0
         # rename index to h3_index to avoid export problems
@@ -30,6 +33,15 @@ class surfaceScore:
         if renameIndex == True: self.gpkg = self.gpkg.drop(columns=['index'])
         consoleLogger.info(f'Successfully loaded GeoDataframe from {geoPackage}')
         fileLogger.info(f'Successfully loaded GeoDataframe from {geoPackage}')
+
+    def runSurfaceScoring(self, scoringDict: dict):
+        self.lowScoreFields(scoringDict['LOW'])
+        self.medScoreFields(scoringDict['MED'])
+        self.highScoreFields(scoringDict['HIGH'])
+        self.expSurf = self.gpkg.copy()
+        # Compare SCORE to SCORE_ROADS take highest value
+        if 'SCORE_ROADS' in self.expSurf.columns:
+            self.expSurf['SCORE'] = self.expSurf.apply(lambda r: r['SCORE_ROADS'] if r['SCORE_ROADS'] > r['SCORE'] else r['SCORE'], axis=1)
 
     def addLayerToSurface(self, layerPath, fieldsToKeep: list, projCRS: int, format: str='FILE'):
         if format.upper() == 'FILE':
